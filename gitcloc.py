@@ -3,14 +3,19 @@ import re
 import random
 import os
 import json
+import sys
 
 """
 days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 """
 
+if len(sys.argv) < 2:
+	print("\tUsage: python3 gitclocl.py <full path to git directory>.\n\tIf you want to use your current working directory, pass in $(pwd)")
+	exit()
 
-gitdir = "/home/vasia/repos/522/"
+gitdir = sys.argv[1]
+
 commit_pattern = re.compile(r'[\da-f]{40}')
 #date_pattern = re.compile(r'(%s){1}\s(%s){1}\s\d{1,2}\s' % ('|'.join(days),'|'.join(months)))
 #date_pattern = re.compile(r'Date:\s+[a-zA-Z]{3}\s[a-zA-Z]{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4}')
@@ -43,8 +48,12 @@ for commit in commits:
 	subprocess.run(["git checkout %s" % (commit)],shell=True,cwd=tmpdir,stdout=devnull,stderr=devnull)
 	commit_date_out = subprocess.run(["git log -1 --format=%cd"],shell=True,cwd=tmpdir,stdout=subprocess.PIPE)
 	commit_date = ' '.join(commit_date_out.stdout.decode().split(' ')[:-1])
-	print("Commit: %s... %s" % (commit[0:8], commit_date))
 	cloc_out = subprocess.run(["cloc . --json"],shell=True,cwd=tmpdir,stdout=subprocess.PIPE)
+	if (len(cloc_out.stdout) == 0):
+		continue
+
+	print("Commit: %s... %s" % (commit[0:8], commit_date))
+
 	cloc_dict = json.loads(cloc_out.stdout.decode())
 	for code_type in cloc_dict:
 		if code_type == 'header':			

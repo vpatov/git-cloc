@@ -5,28 +5,22 @@ import os
 import json
 import sys
 
-"""
-days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
-months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-"""
 
+# If used incorrectly, display usage message and exit
 if len(sys.argv) < 2:
-	print("\tUsage: python3 gitclocl.py <full path to git directory>.\n\tIf you want to use your current working directory, pass in $(pwd)")
+	print("\tUsage: python3 gitcloc.py <path/to/git/directory>")
 	exit()
 
 gitdir = sys.argv[1]
-
 commit_pattern = re.compile(r'[\da-f]{40}')
-#date_pattern = re.compile(r'(%s){1}\s(%s){1}\s\d{1,2}\s' % ('|'.join(days),'|'.join(months)))
-#date_pattern = re.compile(r'Date:\s+[a-zA-Z]{3}\s[a-zA-Z]{3}\s\d{1,2}\s\d{2}:\d{2}:\d{2}\s\d{4}')
-"""
-gitremote_out = subprocess.run(["git remote"],cwd=gitdir,shell=True,stdout=subprocess.PIPE)
-gitremote = gitremote_out.stdout.decode()
 
-gitremote_geturl_out = subprocess.run(["git remote get-url %s" % (gitremote)],cwd=gitdir,shell=True,stdout=subprocess.PIPE)
-gitremote_url = gitremote_geturl_out.stdout.decode()
-"""
+# make sure path provided is a git repository
+gitlog_out = subprocess.run(["git log"],cwd=gitdir,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+if (gitlog_out.stderr.decode()[0:6] == 'fatal:'[0:6]):
+	print("\033[1;31m" + gitlog_out.stderr.decode().strip() + "\033[0m")
+	exit()
 
+# Make a temporary directory to copy the repo to.
 tmpnum = random.randint(1000000,10000000)
 tmpdir = '/tmp/%d' % (tmpnum)
 while (os.path.exists(tmpdir)):
@@ -35,15 +29,18 @@ os.mkdir(tmpdir)
 
 subprocess.run(["cp -r . %s" % (tmpdir)],cwd=gitdir,shell=True)
 
+# Get all the commit hashes
 gitlog_out = subprocess.run(["git log"],cwd=tmpdir,shell=True,stdout=subprocess.PIPE)
 commits = commit_pattern.findall(gitlog_out.stdout.decode())
 
-##git log -1 --format=%cd
-
+# Open the null file for dumping
 devnull = open(os.devnull, 'wb')
 
+# Add and commit in the temp copied repo to make sure checkout works fine
 subprocess.run(["git add ."],cwd=tmpdir,shell=True,stdout=devnull,stderr=devnull)
 subprocess.run(["git commit -m \"gitcloc temp commit %d\"" % (tmpnum)],cwd=tmpdir,shell=True,stdout=devnull,stderr=devnull)
+
+# Iterate through commits, checkout, and call cloc
 for commit in commits:
 	subprocess.run(["git checkout %s" % (commit)],shell=True,cwd=tmpdir,stdout=devnull,stderr=devnull)
 	commit_date_out = subprocess.run(["git log -1 --format=%cd"],shell=True,cwd=tmpdir,stdout=subprocess.PIPE)
